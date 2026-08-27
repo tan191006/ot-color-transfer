@@ -94,6 +94,7 @@ def iterative_distribution_transfer(
 # Pitie MKL 2007  (linear Monge-Kantorovitch / Gaussian OT closed form)
 # --------------------------------------------------------------------------- #
 def _sym(M: np.ndarray) -> np.ndarray:
+    """Symmetrize a square matrix: (M + M.T) / 2."""
     return 0.5 * (M + M.T)
 
 

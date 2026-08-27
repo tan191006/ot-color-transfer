@@ -22,6 +22,7 @@ from color_pipeline import to_float_rgb
 
 
 def _lab_pixels(rgb: np.ndarray) -> np.ndarray:
+    """RGB image (any dtype/scale) -> flat (N, 3) array of Lab pixels."""
     return skcolor.rgb2lab(to_float_rgb(rgb)).reshape(-1, 3)
 
 
@@ -83,6 +84,13 @@ def compute_all_metrics(
     target_rgb: np.ndarray,
     **kwargs,
 ) -> dict:
+    """Run all three metrics on one result.
+
+    Input : result_rgb, source_rgb, target_rgb images (any dtype / scale);
+            kwargs are forwarded to :func:`w2_color_distance`.
+    Output: dict with keys ``w2_color_distance``, ``ssim_with_source``,
+            ``color_histogram_intersection``.
+    """
     return {
         "w2_color_distance": w2_color_distance(result_rgb, target_rgb, **kwargs),
         "ssim_with_source": ssim_with_source(result_rgb, source_rgb),

@@ -95,7 +95,21 @@ def build_ot_problem(
     k: int = 512,
     random_state: int = 0,
 ) -> OTProblem:
-    """Build the discrete OT color-transfer problem for a source/target pair."""
+    """Build the discrete OT color-transfer problem for a source/target pair.
+
+    Input
+    -----
+    source_rgb, target_rgb : (H, W, 3) images, any dtype / scale (uint8 or float).
+    k : requested number of KMeans clusters per image (clamped to n_pixels).
+    random_state : KMeans seed, shared by both images.
+
+    Output
+    ------
+    OTProblem with fields a, b (cluster weights summing to 1), C (K_s x K_t
+    squared-L2 cost in Lab), Xs / Xt (cluster centers in Lab), source_labels /
+    target_labels (per-pixel cluster id, flattened) and source_shape /
+    target_shape (for rebuilding the recolored image).
+    """
     source_rgb = to_float_rgb(source_rgb)
     target_rgb = to_float_rgb(target_rgb)
 
