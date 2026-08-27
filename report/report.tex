@@ -10,6 +10,7 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{bm}
 \usepackage{graphicx}
+\usepackage{float}
 \usepackage{booktabs}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -128,12 +129,12 @@ receive exactly $b_j$. The associated $2$-Wasserstein distance is
   W_2(a,b) \;=\; \inner{C}{P^\star}^{1/2},
 \end{equation}
 with $P^\star$ the optimal plan. Problem \cref{eq:kanto} is a linear program; the
-POT routine \code{ot.emd} solves it exactly.
+POT routine~\cite{pot2021} \code{ot.emd} solves it exactly.
 
 \subsection{Entropic regularization (Sinkhorn)}
 
 Adding a negative-entropy term makes the problem strongly convex and solvable by
-fast matrix scaling:
+fast matrix scaling~\cite{cuturi2013}:
 \begin{equation}
   \label{eq:sinkhorn}
   P^\star_\varepsilon
@@ -146,8 +147,9 @@ $\varepsilon$ gives a more diffuse (blurred) plan. Solved by \code{ot.sinkhorn}.
 
 \subsection{Unbalanced optimal transport}
 
-Unbalanced OT replaces the hard marginal constraints of \cref{eq:polytope} with
-soft Kullback--Leibler penalties, so the plan may create or destroy mass:
+Unbalanced OT~\cite{chizat2018} replaces the hard marginal constraints of
+\cref{eq:polytope} with soft Kullback--Leibler penalties, so the plan may create
+or destroy mass:
 \begin{equation}
   \label{eq:unbalanced}
   P^\star
@@ -172,8 +174,8 @@ $\rho$ has the same units as the cost matrix $C$.
 
 \subsection{Partial optimal transport}
 
-Partial OT transports only a prescribed fraction $m \in (0,1]$ of the total mass
-and is free to leave the rest in place:
+Partial OT~\cite{chapel2020} transports only a prescribed fraction
+$m \in (0,1]$ of the total mass and is free to leave the rest in place:
 \begin{equation}
   \label{eq:partial}
   P^\star
@@ -189,8 +191,8 @@ reduces to balanced OT. Solved by \code{ot.partial.partial\_wasserstein}.
 
 \subsection{Sliced optimal transport}
 
-Sliced OT averages one-dimensional Wasserstein distances over random projections
-$\theta \in S^{d-1}$:
+Sliced OT~\cite{bonneel2015} averages one-dimensional Wasserstein distances over
+random projections $\theta \in S^{d-1}$:
 \begin{equation}
   \label{eq:sliced}
   \mathrm{SW}_2^2(a,b)
@@ -208,8 +210,9 @@ $G_\ell$ from \code{ot.emd\_1d} on projection $\theta_\ell$ ($L = 100$).
 
 \subsection{Classical baselines}
 
-\paragraph{Reinhard 2001.} Per-channel mean/standard-deviation matching in a
-decorrelated color space (here CIELAB). For each channel $c \in \{L,a,b\}$,
+\paragraph{Reinhard 2001~\cite{reinhard2001}.} Per-channel
+mean/standard-deviation matching in a decorrelated color space (here CIELAB).
+For each channel $c \in \{L,a,b\}$,
 \begin{equation}
   \label{eq:reinhard}
   I^{c}_{\text{out}}
@@ -218,7 +221,8 @@ decorrelated color space (here CIELAB). For each channel $c \in \{L,a,b\}$,
         \;+\; \mu^{c}_t .
 \end{equation}
 
-\paragraph{Iterative Distribution Transfer (Piti\'e 2007).} Repeatedly: draw a
+\paragraph{Iterative Distribution Transfer (Piti\'e 2007~\cite{pitie2007idt}).}
+Repeatedly: draw a
 random rotation $R \in SO(3)$, rotate both point clouds, and along each rotated
 axis $k$ apply a 1-D histogram match (CDF transfer)
 \begin{equation}
@@ -229,7 +233,7 @@ with $F_{s,k}, F_{t,k}$ the marginal CDFs of the rotated source and target;
 then rotate back, $x \leftarrow R^\top z$. Iterating drives the full 3-D
 distributions together.
 
-\paragraph{Monge--Kantorovich Linear / MKL (Piti\'e \& Kokaram 2007).}
+\paragraph{Monge--Kantorovich Linear / MKL (Piti\'e \& Kokaram 2007~\cite{pitie2007mkl}).}
 The closed-form $W_2$-optimal map between two Gaussians
 $\mathcal{N}(\mu_s, \Sig_s)$ and $\mathcal{N}(\mu_t, \Sig_t)$ is affine,
 \begin{equation}
@@ -252,45 +256,55 @@ Every OT method is reduced to the same five-stage pipeline
 (\cref{fig:pipeline}). Baselines skip stages 2--5 and act directly on the raw
 CIELAB pixels via \cref{eq:reinhard,eq:idt,eq:mkl}.
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
     font=\small,
-    box/.style={draw, rounded corners=2pt, align=center, minimum height=9mm,
-                inner sep=4pt, fill=blue!5},
-    data/.style={draw, align=center, minimum height=9mm, inner sep=4pt,
-                 fill=gray!8},
-    arr/.style={-{Latex[length=2.4mm]}, thick},
-    node distance=6mm and 8mm,
+    box/.style ={draw, rounded corners=2pt, align=center, minimum height=14mm,
+                 minimum width=32mm, inner sep=4pt, fill=blue!5},
+    data/.style={draw, align=center, minimum height=14mm, minimum width=26mm,
+                 inner sep=4pt, fill=black!6},
+    base/.style={draw, dashed, rounded corners=2pt, align=center,
+                 minimum height=13mm, inner sep=5pt, fill=orange!12},
+    arr/.style ={-{Latex[length=2.6mm]}, thick, rounded corners=2pt},
   ]
-  \node[data] (rgb) {Source / target\\ RGB image};
-  \node[box, right=of rgb] (lab) {RGB $\to$ CIELAB};
-  \node[box, right=of lab] (km) {$K$-means\\ ($K=512$)\\ per image};
-  \node[data, right=of km] (abc) {$a,\,b \in \R_+^{K}$\\ $C \in \R^{K\times K}$};
+  % ---- top row: RGB -> CIELAB -> K-means -> (a,b,C) -------------------- %
+  \node[data]                    (rgb) {Source / target\\ RGB image};
+  \node[box,  right=20mm of rgb] (lab) {RGB $\to$ CIELAB};
+  \node[box,  right=20mm of lab] (km)  {$K$-means\\ $K = 512$, per image};
+  \node[data, right=20mm of km]  (abc) {$a,\, b \in \R_+^{K}$\\[3pt]
+                                        $C \in \R^{K \times K}$};
 
-  \node[box, below=14mm of abc] (solve) {\code{solve\_ot(}$a,b,C,$\code{method)}\\
-        emd $\cdot$ sinkhorn $\cdot$ unbalanced\\ partial $\cdot$ sliced};
-  \node[data, left=of solve] (plan) {transport\\ plan $P$};
-  \node[box, left=of plan] (bary) {barycentric\\ mapping $\hat{x}_i$};
-  \node[data, left=of bary] (out) {Recolored\\ RGB image};
+  % ---- bottom row: solve_ot -> P -> barycentric -> output ------------- %
+  \node[box,  below=42mm of abc]  (solve) {\code{solve\_ot}$(a, b, C, \text{method})$\\[3pt]
+        \footnotesize emd $\cdot$ sinkhorn $\cdot$ unbalanced $\cdot$ partial $\cdot$ sliced};
+  \node[data, left=20mm of solve] (plan) {transport\\ plan $P$};
+  \node[box,  left=18mm of plan]  (bary) {barycentric\\ mapping\ \ $\hat{x}_i$};
+  \node[data, left=18mm of bary]  (out)  {Recolored\\ RGB image};
 
+  % ---- baseline box, in the band between the two rows ----------------- %
+  \node[base] (bl) at ($ (lab)!0.5!(km) + (0,-21mm) $)
+        {Classical baselines (Reinhard / IDT / MKL):\\
+         operate directly on CIELAB pixels --- no clustering, no plan};
+
+  % ---- solid OT path ------------------------------------------------- %
   \draw[arr] (rgb) -- (lab);
   \draw[arr] (lab) -- (km);
-  \draw[arr] (km) -- (abc);
-  \draw[arr] (abc) -- (solve);
+  \draw[arr] (km)  -- (abc);
+  \draw[arr] (abc.south) -- (solve.north);
   \draw[arr] (solve) -- (plan);
-  \draw[arr] (plan) -- (bary);
-  \draw[arr] (bary) -- (out);
+  \draw[arr] (plan)  -- (bary);
+  \draw[arr] (bary)  -- (out);
 
-  \node[draw, dashed, rounded corners, fill=orange!8, align=center,
-        below=6mm of lab, xshift=6mm] (base)
-        {classical baselines: Reinhard / IDT / MKL act here,\\
-         directly on CIELAB pixels (no clustering, no plan)};
-  \draw[arr, dashed] (lab.south) .. controls +(0,-6mm) .. (base.north west);
-  \draw[arr, dashed] (base.west) .. controls +(-10mm,0) .. (out.south);
-\end{tikzpicture}
-\caption{The unified color-transfer pipeline. OT methods follow the solid path;
-classical baselines follow the dashed path.}
+  % ---- dashed baseline bypass: CIELAB -> baselines -> output --------- %
+  \coordinate (mid) at ($(lab.south)!0.5!(km.south)$);
+  \draw[arr, dashed] (mid) -- (bl.north);
+  \draw[arr, dashed] (bl.south) -| (out.north);
+\end{tikzpicture}}
+\caption{The unified color-transfer pipeline. OT methods follow the solid path
+(top row left-to-right, then bottom row right-to-left). Classical baselines
+follow the dashed path, skipping clustering and the transport plan.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -422,9 +436,9 @@ method & type & $W_2\;\downarrow$ & SSIM $\uparrow$ & Hist.\ $\uparrow$ & time (
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.86\linewidth]{pareto_plot.png}
+\includegraphics[width=0.72\linewidth]{pareto_plot.png}
 \caption{Pareto plane for the benchmark pair. \code{emd} attains the best palette
 match ($W_2 \approx 4$) but the worst structure score; the Pareto frontier is
 formed by \code{emd}, \code{idt}, \code{sinkhorn}, \code{sliced}, and
@@ -432,7 +446,7 @@ formed by \code{emd}, \code{idt}, \code{sinkhorn}, \code{sliced}, and
 \label{fig:pareto}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{montage.png}
 \caption{Benchmark pair: source, target, and the eight recolored results.
@@ -489,9 +503,9 @@ source (identity)            & 92.37 & 1.000 \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{mismatch_comparison.png}
+\includegraphics[width=0.74\linewidth]{mismatch_comparison.png}
 \caption{Mismatch pair. \textbf{Top row}: source $A$ ($70\%$ green / $30\%$
 brown), target $B$ ($70\%$ orange / $30\%$ blue), and \code{EMD}. \textbf{Middle
 row}: unbalanced OT, $\rho \in \{0.1, 1, 10\}$. \textbf{Bottom row}: partial OT,
@@ -553,8 +567,8 @@ a validation signal.
         higher-dimensional color manifolds.
   \item Cluster-based barycentric mapping (\cref{eq:bary}) causes spatial speckle
         (\cref{fig:montage}); a spatially-regularized OT
-        (e.g.\ a Laplacian penalty on the map) or a larger $K$ with post-hoc
-        smoothing would mitigate this.
+        (e.g.\ a Laplacian penalty on the map~\cite{ferradans2014}) or a larger
+        $K$ with post-hoc smoothing would mitigate this.
   \item Our sliced-OT ``plan'' is an average of 1-D couplings, not a true
         transport map; a Monge-style 1-D transport composition would be more
         faithful.
