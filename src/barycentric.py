@@ -25,10 +25,31 @@ def barycentric_centers(
     Xt: np.ndarray,
     Xs: np.ndarray,
     mass_eps: float = 1e-9,
+    a: np.ndarray | None = None,
+    keep_unmatched: bool = False,
 ) -> np.ndarray:
-    """Recolored Lab position for every source cluster, shape (K_s, 3)."""
+    """Recolored Lab position for every source cluster, shape (K_s, 3).
+
+    With ``keep_unmatched=True`` (needs the source weights ``a``), the mass a
+    row failed to transport -- ``a[i] - P[i].sum()``, which is > 0 only for
+    partial / unbalanced OT -- is treated as *staying at the source color*::
+
+        new_lab[i] = ( P[i] @ Xt  +  (a[i] - P[i].sum()) * Xs[i] ) / a[i]
+
+    so a cluster that ships only 30% of its mass ends up 70% its old color, not
+    fully recolored.  The default (``False``) keeps the classic behaviour:
+    normalize by the transported mass, and fall back to ``Xs`` only for rows
+    with essentially zero mass.
+    """
     P = np.asarray(P, dtype=np.float64)
     row_mass = P.sum(axis=1)
+
+    if keep_unmatched and a is not None:
+        a = np.asarray(a, dtype=np.float64)
+        undelivered = np.clip(a - row_mass, 0.0, None)
+        denom = np.maximum(a, mass_eps)
+        return (P @ Xt + undelivered[:, None] * Xs) / denom[:, None]
+
     safe = np.maximum(row_mass, mass_eps)
     new_lab = (P @ Xt) / safe[:, None]
     # keep original color where (almost) no mass was transported
@@ -44,6 +65,8 @@ def map_colors(
     X_source_centers: np.ndarray,
     source_shape: tuple | None = None,
     return_lab: bool = False,
+    a: np.ndarray | None = None,
+    keep_unmatched: bool = False,
 ) -> np.ndarray:
     """Apply barycentric mapping and return the recolored image.
 
@@ -55,12 +78,18 @@ def map_colors(
     X_source_centers : (K_s, 3) source cluster centers in Lab.
     source_shape : (H, W, 3); if None the result is returned flat as (H*W, 3).
     return_lab : if True, return Lab instead of RGB.
+    a : (K_s,) source weights, required when ``keep_unmatched`` is True.
+    keep_unmatched : blend untransported mass back to the source color
+        (see :func:`barycentric_centers`).
 
     Returns
     -------
     ndarray  recolored image, RGB in [0, 1] (or Lab if ``return_lab``).
     """
-    new_lab_centers = barycentric_centers(P, X_target_centers, X_source_centers)
+    new_lab_centers = barycentric_centers(
+        P, X_target_centers, X_source_centers,
+        a=a, keep_unmatched=keep_unmatched,
+    )
     pixels_lab = new_lab_centers[np.asarray(source_labels)]
 
     if source_shape is not None:
@@ -71,7 +100,8 @@ def map_colors(
     return lab_to_rgb(pixels_lab)
 
 
-def transfer(prob, P, return_lab: bool = False) -> np.ndarray:
+def transfer(prob, P, return_lab: bool = False,
+             keep_unmatched: bool = False) -> np.ndarray:
     """Convenience wrapper around :func:`map_colors` using an ``OTProblem``."""
     return map_colors(
         P,
@@ -80,6 +110,8 @@ def transfer(prob, P, return_lab: bool = False) -> np.ndarray:
         prob.Xs,
         source_shape=prob.source_shape,
         return_lab=return_lab,
+        a=prob.a,
+        keep_unmatched=keep_unmatched,
     )
 
 
